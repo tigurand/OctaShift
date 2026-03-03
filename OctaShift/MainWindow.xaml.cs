@@ -269,15 +269,20 @@ namespace OctaShift
         private static void ScheduleUpdateInstall(string zipPath, string destinationFolder)
         {
             var updater = Path.Combine(Path.GetTempPath(), "OctaShift-updater.cmd");
+            var tmpRoot = Path.Combine(Path.GetTempPath(), $"OctaShift-update-{Guid.NewGuid():N}");
 
             var script = new StringBuilder();
             script.AppendLine("@echo off");
             script.AppendLine("setlocal");
             script.AppendLine($"set ZIP=\"{zipPath}\"");
             script.AppendLine($"set DEST=\"{destinationFolder}\"");
-            script.AppendLine("timeout /t 1 /nobreak >nul");
-            script.AppendLine("powershell -NoProfile -Command \"Expand-Archive -Force %ZIP% %DEST%\"");
+            script.AppendLine($"set TMPDEST=\"{tmpRoot}\"");
+            script.AppendLine("timeout /t 2 /nobreak >nul");
+            script.AppendLine("powershell -NoProfile -Command \"Remove-Item -Recurse -Force $env:TMPDEST -ErrorAction SilentlyContinue\"");
+            script.AppendLine("powershell -NoProfile -Command \"Expand-Archive -Force %ZIP% %TMPDEST%\"");
+            script.AppendLine("powershell -NoProfile -Command \"$src=%TMPDEST%; $dest=%DEST%; $items=Get-ChildItem -LiteralPath $src; if($items.Count -eq 1 -and $items[0].PSIsContainer){$src=$items[0].FullName}; robocopy $src $dest /MIR /NFL /NDL /NJH /NJS | Out-Null\"");
             script.AppendLine("start \"\" \"%DEST%\\OctaShift.exe\"");
+            script.AppendLine("powershell -NoProfile -Command \"Remove-Item -Recurse -Force %TMPDEST% -ErrorAction SilentlyContinue\"");
             script.AppendLine("del /f /q %ZIP%");
             script.AppendLine("del /f /q \"%~f0\"");
 
