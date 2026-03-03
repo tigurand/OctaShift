@@ -5,6 +5,8 @@
         Icon="OctaShift.ico"
         Height="720"
         Width="760"
+        MinHeight="520"
+        MinWidth="620"
         WindowStartupLocation="CenterScreen"
         AllowDrop="True"
         Drop="Window_Drop">

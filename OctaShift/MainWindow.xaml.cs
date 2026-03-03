@@ -500,29 +500,9 @@ namespace OctaShift
 
             var safeMidi = RebuildCleanMidi(workingEvents);
 
-            UpdateInternalName(safeMidi, suffix);
-
             safeMidi.PrepareForExport();
 
             MidiFile.Export(newPath, safeMidi);
-        }
-
-        private void UpdateInternalName(MidiEventCollection events, string suffix)
-        {
-            for (int t = 0; t < events.Tracks; t++)
-            {
-                foreach (var e in events[t])
-                {
-                    if (e is MetaEvent meta && meta.MetaEventType == MetaEventType.SequenceTrackName)
-                    {
-                        events[t].Remove(meta);
-                        break;
-                    }
-                }
-
-                events[t].Insert(0,
-                    new TextEvent("OctaShift " + suffix, MetaEventType.SequenceTrackName, 0));
-            }
         }
 
         private int ClosestMap(int original, int min, int max)
