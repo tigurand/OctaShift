@@ -230,7 +230,8 @@ namespace OctaShift
 
                 var appDir = AppDomain.CurrentDomain.BaseDirectory;
                 UpdateStatusText.Text = "Installing...";
-                ScheduleUpdateInstall(tmpZip, appDir);
+                int currentPid = Process.GetCurrentProcess().Id;
+                ScheduleUpdateInstall(tmpZip, appDir, currentPid);
 
                 UpdateStatusText.Text = "Ready to restart";
                 MessageBox.Show("Update downloaded. The app will close and restart to finish installing.", "Update", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -266,7 +267,7 @@ namespace OctaShift
             return null;
         }
 
-        private static void ScheduleUpdateInstall(string zipPath, string destinationFolder)
+        private static void ScheduleUpdateInstall(string zipPath, string destinationFolder, int currentPid)
         {
             var updater = Path.Combine(Path.GetTempPath(), "OctaShift-updater.cmd");
             var tmpRoot = Path.Combine(Path.GetTempPath(), $"OctaShift-update-{Guid.NewGuid():N}");
@@ -277,10 +278,15 @@ namespace OctaShift
             script.AppendLine($"set ZIP=\"{zipPath}\"");
             script.AppendLine($"set DEST=\"{destinationFolder}\"");
             script.AppendLine($"set TMPDEST=\"{tmpRoot}\"");
+            script.AppendLine($"set PID={currentPid}");
             script.AppendLine("timeout /t 2 /nobreak >nul");
-            script.AppendLine("powershell -NoProfile -Command \"Remove-Item -Recurse -Force $env:TMPDEST -ErrorAction SilentlyContinue\"");
-            script.AppendLine("powershell -NoProfile -Command \"Expand-Archive -Force %ZIP% %TMPDEST%\"");
-            script.AppendLine("powershell -NoProfile -Command \"$src=%TMPDEST%; $dest=%DEST%; $items=Get-ChildItem -LiteralPath $src; if($items.Count -eq 1 -and $items[0].PSIsContainer){$src=$items[0].FullName}; robocopy $src $dest /MIR /NFL /NDL /NJH /NJS | Out-Null\"");
+            script.AppendLine(":waitloop");
+            script.AppendLine("tasklist /FI \"PID eq %PID%\" | findstr /C:\" %PID% \" >nul");
+            script.AppendLine("if %errorlevel%==0 (");
+            script.AppendLine("  timeout /t 1 /nobreak >nul");
+            script.AppendLine("  goto waitloop");
+            script.AppendLine(")");
+            script.AppendLine("powershell -NoProfile -Command \"$zip='%ZIP%'; $tmp='%TMPDEST%'; $dest='%DEST%'; Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue; Expand-Archive -Force $zip $tmp; $src=$tmp; $items=Get-ChildItem -LiteralPath $src; if($items.Count -eq 1 -and $items[0].PSIsContainer){$src=$items[0].FullName}; robocopy $src $dest /MIR /NFL /NDL /NJH /NJS | Out-Null\"");
             script.AppendLine("start \"\" \"%DEST%\\OctaShift.exe\"");
             script.AppendLine("powershell -NoProfile -Command \"Remove-Item -Recurse -Force %TMPDEST% -ErrorAction SilentlyContinue\"");
             script.AppendLine("del /f /q %ZIP%");
