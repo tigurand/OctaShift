@@ -103,6 +103,12 @@ namespace OctaShift
             if (TrimSilenceCheck != null)
                 TrimSilenceCheck.IsChecked = Properties.Settings.Default.TrimSilence;
 
+            if (SimplifyNotesCheck != null)
+                SimplifyNotesCheck.IsChecked = Properties.Settings.Default.SimplifyNotes;
+
+            if (SimplifyNotesCountTextBox != null)
+                SimplifyNotesCountTextBox.Text = Properties.Settings.Default.SimplifyNotesCount.ToString();
+
             if (OutputFolderTextBox != null)
                 OutputFolderTextBox.Text = Properties.Settings.Default.OutputFolder;
 
@@ -143,6 +149,10 @@ namespace OctaShift
             Properties.Settings.Default.MergeTracks = MergeTracksCheck.IsChecked == true;
             Properties.Settings.Default.MergeChannels = MergeChannelsCheck.IsChecked == true;
             Properties.Settings.Default.TrimSilence = TrimSilenceCheck.IsChecked == true;
+            Properties.Settings.Default.SimplifyNotes = SimplifyNotesCheck.IsChecked == true;
+
+            if (int.TryParse(SimplifyNotesCountTextBox.Text, out int simplifyCount) && simplifyCount > 0)
+                Properties.Settings.Default.SimplifyNotesCount = simplifyCount;
             Properties.Settings.Default.OutputFolder = OutputFolderTextBox.Text;
 
             if (Mode15Radio.IsChecked == true)
@@ -608,6 +618,15 @@ namespace OctaShift
                 TrimLeadingSilence(workingEvents);
             }
 
+            if (SimplifyNotesCheck.IsChecked == true)
+            {
+                int limit = Properties.Settings.Default.SimplifyNotesCount > 0
+                    ? Properties.Settings.Default.SimplifyNotesCount
+                    : 3;
+
+                ApplyNoteSimplification(workingEvents, limit);
+            }
+
             if (GlobalShiftRadio.IsChecked == true)
             {
                 ApplyGlobalShift(workingEvents);
@@ -789,6 +808,99 @@ namespace OctaShift
                 mapped -= 12;
 
             return mapped;
+        }
+
+        private void SimplifyNotesCountTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            if (_isLoading) return;
+            SaveSettings();
+        }
+
+        private void ApplyNoteSimplification(MidiEventCollection events, int maxSimultaneous)
+        {
+            if (maxSimultaneous <= 0) return;
+
+            var noteRefs = new List<(int Track, NoteOnEvent Note)>();
+
+            for (int t = 0; t < events.Tracks; t++)
+            {
+                foreach (var ev in events[t])
+                {
+                    if (ev is NoteOnEvent on && on.Channel != 9 && on.Velocity > 0)
+                    {
+                        noteRefs.Add((t, on));
+                    }
+                }
+            }
+
+            var groups = noteRefs
+                .GroupBy(n => n.Note.AbsoluteTime)
+                .ToList();
+
+            var touchedTracks = new HashSet<int>();
+
+            foreach (var group in groups)
+            {
+                var notesAtTime = group
+                    .OrderBy(n => n.Note.NoteNumber)
+                    .ToList();
+
+                if (notesAtTime.Count <= maxSimultaneous)
+                    continue;
+
+                var keep = new List<(int Track, NoteOnEvent Note)>();
+
+                if (maxSimultaneous == 1)
+                {
+                    keep.Add(notesAtTime[notesAtTime.Count / 2]);
+                }
+                else
+                {
+                    double step = (notesAtTime.Count - 1) / (double)(maxSimultaneous - 1);
+                    for (int i = 0; i < maxSimultaneous; i++)
+                    {
+                        int idx = (int)Math.Round(i * step);
+                        if (idx < 0) idx = 0;
+                        if (idx > notesAtTime.Count - 1) idx = notesAtTime.Count - 1;
+                        keep.Add(notesAtTime[idx]);
+                    }
+                }
+
+                var keepSet = new HashSet<NoteOnEvent>(keep.Select(k => k.Note));
+
+                var toRemove = notesAtTime.Where(n => !keepSet.Contains(n.Note)).ToList();
+
+                foreach (var noteRef in toRemove)
+                {
+                    var trackEvents = events[noteRef.Track];
+                    trackEvents.Remove(noteRef.Note);
+
+                    var off = trackEvents
+                        .FirstOrDefault(e => e.AbsoluteTime >= noteRef.Note.AbsoluteTime &&
+                                             e is NoteEvent ne &&
+                                             ne.Channel == noteRef.Note.Channel &&
+                                             ne.NoteNumber == noteRef.Note.NoteNumber &&
+                                             (ne.CommandCode == MidiCommandCode.NoteOff ||
+                                              (ne is NoteOnEvent noe && noe.Velocity == 0)));
+
+                    if (off != null)
+                        trackEvents.Remove(off);
+
+                    touchedTracks.Add(noteRef.Track);
+                }
+            }
+
+            foreach (int t in touchedTracks)
+            {
+                var sorted = events[t]
+                    .OrderBy(e => e.AbsoluteTime)
+                    .ThenBy(e => e is MetaEvent ? 0 : 1)
+                    .ToList();
+
+                events[t].Clear();
+                foreach (var ev in sorted)
+                    events[t].Add(ev);
+            }
         }
 
         private void ApplyGlobalShift(MidiEventCollection events)

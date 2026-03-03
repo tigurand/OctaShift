@@ -106,6 +106,30 @@ namespace OctaShift.Properties {
                 this["TrimSilence"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool SimplifyNotes {
+            get {
+                return ((bool)(this["SimplifyNotes"]));
+            }
+            set {
+                this["SimplifyNotes"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("3")]
+        public int SimplifyNotesCount {
+            get {
+                return ((int)(this["SimplifyNotesCount"]));
+            }
+            set {
+                this["SimplifyNotesCount"] = value;
+            }
+        }
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

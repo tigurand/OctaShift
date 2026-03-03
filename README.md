@@ -23,6 +23,7 @@ It automatically shifts notes into supported ranges while preserving musical str
 - 🧩 Merge Tracks
 - 🔀 Merge Channels
 - ✂ Trim Leading Silence
+- 🎛 Limit Simultaneous Notes for Complex MIDI
 - 📂 Batch Processing (Multiple Files / Folder)
 
 ---
@@ -30,12 +31,15 @@ It automatically shifts notes into supported ranges while preserving musical str
 ## 🎯 Key Modes
 
 ### 37 Keys
+
 Standard 3-octave mapping used by most game instruments.
 
 ### 36 Keys
+
 Same as 37 but without the highest C.
 
 ### 15 Keys
+
 Smart pitch folding into 15 keys, no half-notes. Uses scale-degree remapping to preserve harmony.
 
 ---
