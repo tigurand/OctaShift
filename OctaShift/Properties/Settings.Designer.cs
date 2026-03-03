@@ -34,6 +34,18 @@ namespace OctaShift.Properties {
                 this["UseClosestMode"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool AutoUpdateEnabled {
+            get {
+                return ((bool)(this["AutoUpdateEnabled"]));
+            }
+            set {
+                this["AutoUpdateEnabled"] = value;
+            }
+        }
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

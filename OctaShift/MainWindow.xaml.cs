@@ -4,8 +4,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Threading;
+using System.Threading.Tasks;
+using System.Diagnostics;
+using System.Text;
 
 namespace OctaShift
 {
@@ -23,6 +28,9 @@ namespace OctaShift
         private static readonly int[] NaturalNotes = { 0, 2, 4, 5, 7, 9, 11 };
 
         private bool _isLoading = true;
+        private const string RepoOwner = "tigurand";
+        private const string RepoName = "OctaShift";
+        private const string AssetPrefix = "OctaShift-v";
 
         public MainWindow()
         {
@@ -36,6 +44,8 @@ namespace OctaShift
 
             this.Loaded += (s, e) =>
             {
+                _ = MaybeAutoCheckUpdates();
+
                 if (Properties.Settings.Default.WindowWidth > 0)
                 {
                     this.Width = Properties.Settings.Default.WindowWidth;
@@ -77,6 +87,9 @@ namespace OctaShift
 
             if (GlobalShiftRadio != null)
                 GlobalShiftRadio.IsChecked = !Properties.Settings.Default.UseClosestMode;
+
+            if (AutoUpdateCheck != null)
+                AutoUpdateCheck.IsChecked = Properties.Settings.Default.AutoUpdateEnabled;
 
             if (RemovePercussionCheck != null)
                 RemovePercussionCheck.IsChecked = Properties.Settings.Default.RemovePercussion;
@@ -125,6 +138,7 @@ namespace OctaShift
         private void SaveSettings()
         {
             Properties.Settings.Default.UseClosestMode = ClosestModeRadio.IsChecked == true;
+            Properties.Settings.Default.AutoUpdateEnabled = AutoUpdateCheck.IsChecked == true;
             Properties.Settings.Default.RemovePercussion = RemovePercussionCheck.IsChecked == true;
             Properties.Settings.Default.MergeTracks = MergeTracksCheck.IsChecked == true;
             Properties.Settings.Default.MergeChannels = MergeChannelsCheck.IsChecked == true;
@@ -139,6 +153,143 @@ namespace OctaShift
                 Properties.Settings.Default.KeyMode = "37";
 
             Properties.Settings.Default.Save();
+        }
+
+        private async Task MaybeAutoCheckUpdates()
+        {
+            if (Properties.Settings.Default.AutoUpdateEnabled)
+            {
+                await CheckForUpdatesAsync(showResultIfUpToDate: false, autoPrompt: true);
+            }
+        }
+
+        private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            await CheckForUpdatesAsync(showResultIfUpToDate: true, autoPrompt: true);
+        }
+
+        private async Task CheckForUpdatesAsync(bool showResultIfUpToDate, bool autoPrompt)
+        {
+            try
+            {
+                UpdateStatusText.Text = "Checking releases...";
+                using var http = new HttpClient();
+                http.DefaultRequestHeaders.UserAgent.ParseAdd("OctaShift-Updater");
+
+                var url = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
+                var resp = await http.GetAsync(url);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    UpdateStatusText.Text = "Check failed";
+                    if (showResultIfUpToDate)
+                        MessageBox.Show($"Failed to check updates: {resp.StatusCode}", "Update", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var json = await resp.Content.ReadAsStringAsync();
+                var latest = System.Text.Json.JsonDocument.Parse(json).RootElement;
+                var latestTag = latest.GetProperty("tag_name").GetString();
+                var assets = latest.GetProperty("assets");
+
+                var current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0.0";
+                bool hasNewer = IsNewer(latestTag, current);
+
+                if (!hasNewer)
+                {
+                    UpdateStatusText.Text = "Up to date";
+                    if (showResultIfUpToDate)
+                        MessageBox.Show("You already have the latest version.", "Update", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var assetUrl = FindAssetUrl(assets, latestTag);
+                if (assetUrl == null)
+                {
+                    UpdateStatusText.Text = "Asset not found";
+                    MessageBox.Show("New version found, but release asset is missing.", "Update", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var result = autoPrompt
+                    ? MessageBox.Show($"New version {latestTag} available. Download and install now?", "Update", MessageBoxButton.YesNo, MessageBoxImage.Question)
+                    : MessageBoxResult.No;
+
+                if (autoPrompt && result != MessageBoxResult.Yes)
+                {
+                    UpdateStatusText.Text = "Update skipped";
+                    return;
+                }
+
+                UpdateStatusText.Text = "Downloading...";
+                var tmpZip = Path.Combine(Path.GetTempPath(), $"OctaShift-{latestTag}.zip");
+                using (var stream = await http.GetStreamAsync(assetUrl))
+                using (var file = File.Create(tmpZip))
+                {
+                    await stream.CopyToAsync(file);
+                }
+
+                var appDir = AppDomain.CurrentDomain.BaseDirectory;
+                UpdateStatusText.Text = "Installing...";
+                ScheduleUpdateInstall(tmpZip, appDir);
+
+                UpdateStatusText.Text = "Ready to restart";
+                MessageBox.Show("Update downloaded. The app will close and restart to finish installing.", "Update", MessageBoxButton.OK, MessageBoxImage.Information);
+                Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                UpdateStatusText.Text = "Update failed";
+                MessageBox.Show($"Update failed: {ex.Message}", "Update", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private static bool IsNewer(string? tag, string currentVersion)
+        {
+            if (string.IsNullOrWhiteSpace(tag)) return false;
+
+            string normalized = tag.TrimStart('v', 'V');
+            if (!Version.TryParse(normalized, out var latest)) return false;
+            if (!Version.TryParse(currentVersion, out var current)) return true;
+            return latest > current;
+        }
+
+        private static string? FindAssetUrl(JsonElement assets, string? latestTag)
+        {
+            foreach (var asset in assets.EnumerateArray())
+            {
+                var name = asset.GetProperty("name").GetString();
+                if (!string.IsNullOrEmpty(name) && name.StartsWith(AssetPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return asset.GetProperty("browser_download_url").GetString();
+                }
+            }
+            return null;
+        }
+
+        private static void ScheduleUpdateInstall(string zipPath, string destinationFolder)
+        {
+            var updater = Path.Combine(Path.GetTempPath(), "OctaShift-updater.cmd");
+
+            var script = new StringBuilder();
+            script.AppendLine("@echo off");
+            script.AppendLine("setlocal");
+            script.AppendLine($"set ZIP=\"{zipPath}\"");
+            script.AppendLine($"set DEST=\"{destinationFolder}\"");
+            script.AppendLine("timeout /t 1 /nobreak >nul");
+            script.AppendLine("powershell -NoProfile -Command \"Expand-Archive -Force %ZIP% %DEST%\"");
+            script.AppendLine("start \"\" \"%DEST%\\OctaShift.exe\"");
+            script.AppendLine("del /f /q %ZIP%");
+            script.AppendLine("del /f /q \"%~f0\"");
+
+            File.WriteAllText(updater, script.ToString());
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c \"\"{updater}\"\"",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            });
         }
 
         private void AddFiles_Click(object sender, RoutedEventArgs e)

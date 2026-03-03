@@ -121,7 +121,7 @@
                         </CheckBox.ToolTip>
                     </CheckBox>
 
-            <StackPanel Orientation="Horizontal" Margin="0,10">
+             <StackPanel Orientation="Horizontal" Margin="0,10">
                 <TextBox x:Name="OutputFolderTextBox"
              Width="500"
              IsReadOnly="True"
@@ -130,6 +130,26 @@
                 <Button Content="Select Output Folder"
             Click="SelectOutputFolder_Click"/>
             </StackPanel>
+
+            <GroupBox Header="Updates" Margin="0,10,0,0">
+                <StackPanel Margin="5">
+                    <CheckBox x:Name="AutoUpdateCheck"
+                              Content="Enable auto-update (GitHub releases)"
+                              Margin="0,3"
+                              Checked="SettingsChanged"
+                              Unchecked="SettingsChanged"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,5">
+                        <Button Content="Check for Updates"
+                                Width="140"
+                                Click="CheckUpdates_Click"/>
+                        <TextBlock x:Name="UpdateStatusText"
+                                   Text="Not checked"
+                                   Margin="10,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
 
             <Button Content="Process"
                     Height="45"
