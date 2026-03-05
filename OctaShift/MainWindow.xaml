@@ -54,7 +54,7 @@
                             <GroupBox Header="Processing Mode">
                                 <StackPanel Margin="5">
                                     <RadioButton x:Name="ClosestModeRadio"
-                                                 Content="Option A - Closest Octave Mapping"
+                                                 Content="Closest Octave Mapping"
                                                  IsChecked="True"
                                                  Margin="0,3"
                                                  Checked="SettingsChanged"
@@ -66,7 +66,7 @@
                                     </RadioButton>
 
                                     <RadioButton x:Name="GlobalShiftRadio"
-                                                 Content="Option B - Global Track Shift First"
+                                                 Content="Global Track Shift First"
                                                  Margin="0,3"
                                                  Checked="SettingsChanged"
                                                  Unchecked="SettingsChanged">
@@ -139,7 +139,7 @@
                                         <TextBox x:Name="SimplifyNotesCountTextBox"
                                                  Width="60"
                                                  Margin="10,0,5,0"
-                                                 TextChanged="SimplifyNotesCountTextChanged"
+                                                 TextChanged="NumericSettingTextChanged"
                                                  IsEnabled="{Binding IsChecked, ElementName=SimplifyNotesCheck}"
                                                  VerticalContentAlignment="Center"/>
 
@@ -148,6 +148,28 @@
 
                                         <StackPanel.ToolTip>
                                             Limit how many notes can start at exactly the same time (percussion ignored). Extra notes are dropped by picking spread pitches like lowest/middle/highest.
+                                        </StackPanel.ToolTip>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
+                                        <CheckBox x:Name="TransposeNotesCheck"
+                                                  Content="Transpose notes by"
+                                                  Checked="SettingsChanged"
+                                                  Unchecked="SettingsChanged"
+                                                  VerticalAlignment="Center"/>
+
+                                        <TextBox x:Name="TransposeNotesCountTextBox"
+                                                 Width="60"
+                                                 Margin="10,0,5,0"
+                                                 TextChanged="NumericSettingTextChanged"
+                                                 IsEnabled="{Binding IsChecked, ElementName=TransposeNotesCheck}"
+                                                 VerticalContentAlignment="Center"/>
+
+                                        <TextBlock Text="semitones"
+                                                   VerticalAlignment="Center"/>
+
+                                        <StackPanel.ToolTip>
+                                            Transposes all non-percussion notes by the specified number of semitones. Only for 37/36 keys.
                                         </StackPanel.ToolTip>
                                     </StackPanel>
 

@@ -34,7 +34,7 @@ namespace OctaShift.Properties {
                 this["UseClosestMode"] = value;
             }
         }
-
+        
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -106,7 +106,7 @@ namespace OctaShift.Properties {
                 this["TrimSilence"] = value;
             }
         }
-
+        
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -118,7 +118,7 @@ namespace OctaShift.Properties {
                 this["SimplifyNotes"] = value;
             }
         }
-
+        
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("3")]
@@ -200,6 +200,30 @@ namespace OctaShift.Properties {
             }
             set {
                 this["KeyMode"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool TransposeNotes {
+            get {
+                return ((bool)(this["TransposeNotes"]));
+            }
+            set {
+                this["TransposeNotes"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int TransposeNotesCount {
+            get {
+                return ((int)(this["TransposeNotesCount"]));
+            }
+            set {
+                this["TransposeNotesCount"] = value;
             }
         }
     }

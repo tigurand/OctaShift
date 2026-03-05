@@ -20,12 +20,15 @@ namespace OctaShift
         private const int Min37 = 48;
         private const int Max37 = 84;
 
+        // 36 Keys
         private const int Min36 = Min37;
-        private const int Max36 = Max37 - 1;  // remove highest C
+        private const int Max36 = Max37 - 1;
 
+        // 15 Keys, No Half-notes
         private const int Min15 = Min37;
-        private const int Max15 = Min37 + 24; // 2 octaves up (C → C)
+        private const int Max15 = Min37 + 24;
         private static readonly int[] NaturalNotes = { 0, 2, 4, 5, 7, 9, 11 };
+        private const int Adjustment15 = 12;
 
         private bool _isLoading = true;
         private const string RepoOwner = "tigurand";
@@ -109,6 +112,12 @@ namespace OctaShift
             if (SimplifyNotesCountTextBox != null)
                 SimplifyNotesCountTextBox.Text = Properties.Settings.Default.SimplifyNotesCount.ToString();
 
+            if (TransposeNotesCheck != null)
+                TransposeNotesCheck.IsChecked = Properties.Settings.Default.TransposeNotes;
+
+            if (TransposeNotesCountTextBox != null)
+                TransposeNotesCountTextBox.Text = Properties.Settings.Default.TransposeNotesCount.ToString();
+
             if (OutputFolderTextBox != null)
                 OutputFolderTextBox.Text = Properties.Settings.Default.OutputFolder;
 
@@ -149,10 +158,15 @@ namespace OctaShift
             Properties.Settings.Default.MergeTracks = MergeTracksCheck.IsChecked == true;
             Properties.Settings.Default.MergeChannels = MergeChannelsCheck.IsChecked == true;
             Properties.Settings.Default.TrimSilence = TrimSilenceCheck.IsChecked == true;
-            Properties.Settings.Default.SimplifyNotes = SimplifyNotesCheck.IsChecked == true;
 
+            Properties.Settings.Default.SimplifyNotes = SimplifyNotesCheck.IsChecked == true;
             if (int.TryParse(SimplifyNotesCountTextBox.Text, out int simplifyCount) && simplifyCount > 0)
                 Properties.Settings.Default.SimplifyNotesCount = simplifyCount;
+
+            Properties.Settings.Default.TransposeNotes = TransposeNotesCheck.IsChecked == true;
+            if (int.TryParse(TransposeNotesCountTextBox.Text, out int transposeCount))
+                Properties.Settings.Default.TransposeNotesCount = transposeCount;
+
             Properties.Settings.Default.OutputFolder = OutputFolderTextBox.Text;
 
             if (Mode15Radio.IsChecked == true)
@@ -547,7 +561,7 @@ namespace OctaShift
             {
                 foreach (var e in events[t])
                 {
-                    if (e is NoteOnEvent on && on.Channel != 9)
+                    if (e is NoteOnEvent on && on.Channel != 10)
                     {
                         if (on.Velocity > 0)
                         {
@@ -582,6 +596,20 @@ namespace OctaShift
                             var originalOn = activeNotes[key].Pop();
                             off.NoteNumber = originalOn.NoteNumber;
                         }
+                    }
+                }
+            }
+        }
+
+        private void TransposeNotes(MidiEventCollection events, int semitoneShift)
+        {
+            for (int t = 0; t < events.Tracks; t++)
+            {
+                foreach (var e in events[t])
+                {
+                    if (e is NoteEvent ne && ne.Channel != 10)
+                    {
+                        ne.NoteNumber += semitoneShift;
                     }
                 }
             }
@@ -627,6 +655,13 @@ namespace OctaShift
                 ApplyNoteSimplification(workingEvents, limit);
             }
 
+            if (TransposeNotesCheck.IsChecked == true && ((Mode36Radio.IsChecked == true) || (Mode37Radio.IsChecked == true)))
+            {
+                int semitoneShift = Properties.Settings.Default.TransposeNotesCount;
+
+                TransposeNotes(workingEvents, semitoneShift);
+            }
+
             if (GlobalShiftRadio.IsChecked == true)
             {
                 ApplyGlobalShift(workingEvents);
@@ -635,13 +670,14 @@ namespace OctaShift
             if (Mode15Radio.IsChecked == true)
             {
                 Apply15KeyMode(workingEvents);
+                TransposeNotes(workingEvents, Adjustment15);
             }
 
             for (int track = 0; track < workingEvents.Tracks; track++)
             {
                 foreach (var midiEvent in workingEvents[track])
                 {
-                    if (midiEvent is NoteEvent noteEvent && noteEvent.Channel != 9)
+                    if (midiEvent is NoteEvent noteEvent && noteEvent.Channel != 10)
                     {
                         if (Mode36Radio.IsChecked == true)
                         {
@@ -743,7 +779,7 @@ namespace OctaShift
             {
                 foreach (var e in events[t])
                 {
-                    if (e is NoteEvent ne && ne.Channel != 9)
+                    if (e is NoteEvent ne && ne.Channel != 10)
                         pitchCount[ne.NoteNumber % 12]++;
                 }
             }
@@ -810,7 +846,7 @@ namespace OctaShift
             return mapped;
         }
 
-        private void SimplifyNotesCountTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private void NumericSettingTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
             if (_isLoading) return;
             SaveSettings();
@@ -826,7 +862,7 @@ namespace OctaShift
             {
                 foreach (var ev in events[t])
                 {
-                    if (ev is NoteOnEvent on && on.Channel != 9 && on.Velocity > 0)
+                    if (ev is NoteOnEvent on && on.Channel != 10 && on.Velocity > 0)
                     {
                         noteRefs.Add((t, on));
                     }
@@ -911,7 +947,7 @@ namespace OctaShift
             {
                 foreach (var ev in track)
                 {
-                    if (ev is NoteEvent ne && ne.Channel != 9)
+                    if (ev is NoteEvent ne && ne.Channel != 10)
                         notes.Add(ne.NoteNumber);
                 }
             }
@@ -930,7 +966,7 @@ namespace OctaShift
             {
                 foreach (var ev in track)
                 {
-                    if (ev is NoteEvent ne && ne.Channel != 9)
+                    if (ev is NoteEvent ne && ne.Channel != 10)
                         ne.NoteNumber += shift;
                 }
             }
