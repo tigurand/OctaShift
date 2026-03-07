@@ -189,8 +189,8 @@
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="5,10,0,5" VerticalAlignment="Center">
                         <TextBox x:Name="OutputFolderTextBox"
                                  MinWidth="520"
-                                 IsReadOnly="True"
-                                 Margin="5,0,8,0"/>
+                                 Margin="5,0,8,0"
+                                 TextChanged="OutputFolderTextChanged"/>
 
                         <Button Content="Select Output Folder"
                                 Width="170"

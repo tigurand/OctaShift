@@ -698,9 +698,29 @@ namespace OctaShift
                 }
             }
 
-            string outputDir = string.IsNullOrWhiteSpace(OutputFolderTextBox.Text)
-                ? Path.GetDirectoryName(path)!
-                : OutputFolderTextBox.Text;
+            string sourceDir = Path.GetDirectoryName(path)!;
+
+            string configuredOutput = OutputFolderTextBox.Text?.Trim() ?? string.Empty;
+            string outputDir;
+
+            if (string.IsNullOrWhiteSpace(configuredOutput))
+            {
+                outputDir = sourceDir;
+            }
+            else
+            {
+                outputDir = configuredOutput;
+
+                try
+                {
+                    if (!Directory.Exists(outputDir))
+                        Directory.CreateDirectory(outputDir);
+                }
+                catch
+                {
+                    outputDir = sourceDir;
+                }
+            }
 
             string suffix;
 
@@ -847,6 +867,12 @@ namespace OctaShift
         }
 
         private void NumericSettingTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            if (_isLoading) return;
+            SaveSettings();
+        }
+
+        private void OutputFolderTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
         {
             if (_isLoading) return;
             SaveSettings();
