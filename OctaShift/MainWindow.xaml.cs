@@ -1004,7 +1004,7 @@ namespace OctaShift
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = "https://sociabuzz.com/lucillebagul",
+                    FileName = "https://linktr.ee/LucilleBagul",
                     UseShellExecute = true
                 });
             }
