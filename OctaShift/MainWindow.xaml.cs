@@ -31,6 +31,7 @@ namespace OctaShift
         private const int Adjustment15 = 12;
 
         private bool _isLoading = true;
+        private AdvancedSimplifyConfig _advancedConfig = new();
         private const string RepoOwner = "tigurand";
         private const string RepoName = "OctaShift";
         private const string AssetPrefix = "OctaShift-v";
@@ -106,11 +107,24 @@ namespace OctaShift
             if (TrimSilenceCheck != null)
                 TrimSilenceCheck.IsChecked = Properties.Settings.Default.TrimSilence;
 
-            if (SimplifyNotesCheck != null)
-                SimplifyNotesCheck.IsChecked = Properties.Settings.Default.SimplifyNotes;
+            SimplifyNotesMode simplifyMode = ParseSimplifyMode(Properties.Settings.Default.SimplifyNotesMode);
+
+            // Legacy migration: a previously ticked checkbox becomes Auto mode.
+            if (string.IsNullOrWhiteSpace(Properties.Settings.Default.SimplifyNotesMode) &&
+                Properties.Settings.Default.SimplifyNotes)
+            {
+                simplifyMode = SimplifyNotesMode.Auto;
+            }
+
+            _advancedConfig = AdvancedSimplifyConfig.Deserialize(Properties.Settings.Default.SimplifyNotesAdvanced);
+
+            if (SimplifyNotesModeCombo != null)
+                SimplifyNotesModeCombo.SelectedIndex = (int)simplifyMode;
 
             if (SimplifyNotesCountTextBox != null)
                 SimplifyNotesCountTextBox.Text = Properties.Settings.Default.SimplifyNotesCount.ToString();
+
+            UpdateSimplifyNotesControls();
 
             if (TransposeNotesCheck != null)
                 TransposeNotesCheck.IsChecked = Properties.Settings.Default.TransposeNotes;
@@ -159,9 +173,17 @@ namespace OctaShift
             Properties.Settings.Default.MergeChannels = MergeChannelsCheck.IsChecked == true;
             Properties.Settings.Default.TrimSilence = TrimSilenceCheck.IsChecked == true;
 
-            Properties.Settings.Default.SimplifyNotes = SimplifyNotesCheck.IsChecked == true;
+            SimplifyNotesMode simplifyMode = GetSimplifyNotesMode();
+
+            Properties.Settings.Default.SimplifyNotesMode = simplifyMode.ToString();
+
+            // Keep the legacy flag in sync so older builds still behave sensibly.
+            Properties.Settings.Default.SimplifyNotes = simplifyMode != SimplifyNotesMode.Off;
+
             if (int.TryParse(SimplifyNotesCountTextBox.Text, out int simplifyCount) && simplifyCount > 0)
                 Properties.Settings.Default.SimplifyNotesCount = simplifyCount;
+
+            Properties.Settings.Default.SimplifyNotesAdvanced = _advancedConfig?.Serialize() ?? string.Empty;
 
             Properties.Settings.Default.TransposeNotes = TransposeNotesCheck.IsChecked == true;
             if (int.TryParse(TransposeNotesCountTextBox.Text, out int transposeCount))
@@ -177,6 +199,82 @@ namespace OctaShift
                 Properties.Settings.Default.KeyMode = "37";
 
             Properties.Settings.Default.Save();
+        }
+
+        private SimplifyNotesMode GetSimplifyNotesMode()
+        {
+            int index = SimplifyNotesModeCombo?.SelectedIndex ?? 0;
+
+            switch (index)
+            {
+                case 1: return SimplifyNotesMode.Auto;
+                case 2: return SimplifyNotesMode.Advanced;
+                default: return SimplifyNotesMode.Off;
+            }
+        }
+
+        private static SimplifyNotesMode ParseSimplifyMode(string? value)
+        {
+            switch ((value ?? string.Empty).Trim().ToLowerInvariant())
+            {
+                case "auto": return SimplifyNotesMode.Auto;
+                case "advanced": return SimplifyNotesMode.Advanced;
+                default: return SimplifyNotesMode.Off;
+            }
+        }
+
+        private void UpdateSimplifyNotesControls()
+        {
+            SimplifyNotesMode mode = GetSimplifyNotesMode();
+
+            if (SimplifyNotesCountTextBox != null)
+                SimplifyNotesCountTextBox.IsEnabled = mode == SimplifyNotesMode.Auto;
+
+            if (SimplifyAdvancedButton != null)
+                SimplifyAdvancedButton.IsEnabled = mode == SimplifyNotesMode.Advanced;
+        }
+
+        private void SimplifyNotesModeChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            UpdateSimplifyNotesControls();
+
+            if (_isLoading) return;
+
+            SaveSettings();
+
+            if (GetSimplifyNotesMode() == SimplifyNotesMode.Advanced && _advancedConfig.Rules.Count == 0)
+            {
+                Dispatcher.BeginInvoke(new Action(ConfigureAdvancedSimplify), DispatcherPriority.Background);
+            }
+        }
+
+        private void ConfigureAdvancedSimplify_Click(object sender, RoutedEventArgs e)
+        {
+            ConfigureAdvancedSimplify();
+        }
+
+        private void ConfigureAdvancedSimplify()
+        {
+            var files = FileListBox.Items.Cast<string>().ToList();
+
+            if (files.Count == 0)
+            {
+                MessageBox.Show(
+                    "Add at least one MIDI file first so its tracks can be listed here.",
+                    "Per-Track Limit",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var window = new AdvancedSimplifyWindow(files, _advancedConfig) { Owner = this };
+
+            if (window.ShowDialog() == true)
+            {
+                _advancedConfig = window.Result;
+                SaveSettings();
+                StatusText.Text = "Per-track note limit updated";
+            }
         }
 
         private async Task MaybeAutoCheckUpdates()
@@ -544,7 +642,8 @@ namespace OctaShift
                     clean[t].Add(e);
                 }
 
-                clean[t].Add(new MetaEvent(MetaEventType.EndTrack, 0, notes.Last().AbsoluteTime + 1));
+                long endTime = notes.Count > 0 ? notes[notes.Count - 1].AbsoluteTime + 1 : 0;
+                clean[t].Add(new MetaEvent(MetaEventType.EndTrack, 0, endTime));
             }
 
             clean.PrepareForExport();
@@ -631,6 +730,13 @@ namespace OctaShift
                 workingEvents = original.Events;
             }
 
+            SimplifyNotesMode simplifyMode = GetSimplifyNotesMode();
+
+            if (simplifyMode == SimplifyNotesMode.Advanced)
+            {
+                NoteSimplifier.ApplyPerTrack(workingEvents, _advancedConfig);
+            }
+
             if (MergeTracksCheck.IsChecked == true)
             {
                 workingEvents = MergeTracksOnly(workingEvents, original.DeltaTicksPerQuarterNote);
@@ -646,13 +752,13 @@ namespace OctaShift
                 TrimLeadingSilence(workingEvents);
             }
 
-            if (SimplifyNotesCheck.IsChecked == true)
+            if (simplifyMode == SimplifyNotesMode.Auto)
             {
                 int limit = Properties.Settings.Default.SimplifyNotesCount > 0
                     ? Properties.Settings.Default.SimplifyNotesCount
                     : 3;
 
-                ApplyNoteSimplification(workingEvents, limit);
+                NoteSimplifier.ApplyAuto(workingEvents, limit);
             }
 
             if (TransposeNotesCheck.IsChecked == true && ((Mode36Radio.IsChecked == true) || (Mode37Radio.IsChecked == true)))
@@ -876,93 +982,6 @@ namespace OctaShift
         {
             if (_isLoading) return;
             SaveSettings();
-        }
-
-        private void ApplyNoteSimplification(MidiEventCollection events, int maxSimultaneous)
-        {
-            if (maxSimultaneous <= 0) return;
-
-            var noteRefs = new List<(int Track, NoteOnEvent Note)>();
-
-            for (int t = 0; t < events.Tracks; t++)
-            {
-                foreach (var ev in events[t])
-                {
-                    if (ev is NoteOnEvent on && on.Channel != 10 && on.Velocity > 0)
-                    {
-                        noteRefs.Add((t, on));
-                    }
-                }
-            }
-
-            var groups = noteRefs
-                .GroupBy(n => n.Note.AbsoluteTime)
-                .ToList();
-
-            var touchedTracks = new HashSet<int>();
-
-            foreach (var group in groups)
-            {
-                var notesAtTime = group
-                    .OrderBy(n => n.Note.NoteNumber)
-                    .ToList();
-
-                if (notesAtTime.Count <= maxSimultaneous)
-                    continue;
-
-                var keep = new List<(int Track, NoteOnEvent Note)>();
-
-                if (maxSimultaneous == 1)
-                {
-                    keep.Add(notesAtTime[notesAtTime.Count / 2]);
-                }
-                else
-                {
-                    double step = (notesAtTime.Count - 1) / (double)(maxSimultaneous - 1);
-                    for (int i = 0; i < maxSimultaneous; i++)
-                    {
-                        int idx = (int)Math.Round(i * step);
-                        if (idx < 0) idx = 0;
-                        if (idx > notesAtTime.Count - 1) idx = notesAtTime.Count - 1;
-                        keep.Add(notesAtTime[idx]);
-                    }
-                }
-
-                var keepSet = new HashSet<NoteOnEvent>(keep.Select(k => k.Note));
-
-                var toRemove = notesAtTime.Where(n => !keepSet.Contains(n.Note)).ToList();
-
-                foreach (var noteRef in toRemove)
-                {
-                    var trackEvents = events[noteRef.Track];
-                    trackEvents.Remove(noteRef.Note);
-
-                    var off = trackEvents
-                        .FirstOrDefault(e => e.AbsoluteTime >= noteRef.Note.AbsoluteTime &&
-                                             e is NoteEvent ne &&
-                                             ne.Channel == noteRef.Note.Channel &&
-                                             ne.NoteNumber == noteRef.Note.NoteNumber &&
-                                             (ne.CommandCode == MidiCommandCode.NoteOff ||
-                                              (ne is NoteOnEvent noe && noe.Velocity == 0)));
-
-                    if (off != null)
-                        trackEvents.Remove(off);
-
-                    touchedTracks.Add(noteRef.Track);
-                }
-            }
-
-            foreach (int t in touchedTracks)
-            {
-                var sorted = events[t]
-                    .OrderBy(e => e.AbsoluteTime)
-                    .ThenBy(e => e is MetaEvent ? 0 : 1)
-                    .ToList();
-
-                events[t].Clear();
-                foreach (var ev in sorted)
-                    events[t].Add(ev);
-            }
         }
 
         private void ApplyGlobalShift(MidiEventCollection events)

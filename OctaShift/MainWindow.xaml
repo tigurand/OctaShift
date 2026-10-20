@@ -4,9 +4,9 @@
         Title="OctaShift"
         Icon="OctaShift.ico"
         Height="640"
-        Width="1100"
+        Width="1200"
         MinHeight="520"
-        MinWidth="920"
+        MinWidth="1160"
         WindowStartupLocation="CenterScreen"
         AllowDrop="True"
         Drop="Window_Drop">
@@ -129,27 +129,43 @@
                                         </CheckBox.ToolTip>
                                     </CheckBox>
 
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
-                                        <CheckBox x:Name="SimplifyNotesCheck"
-                                                  Content="Limit simultaneous notes"
-                                                  Checked="SettingsChanged"
-                                                  Unchecked="SettingsChanged"
-                                                  VerticalAlignment="Center"/>
+                                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
+                                        <TextBlock Text="Limit simultaneous notes:"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,2,8,2"/>
+
+                                        <ComboBox x:Name="SimplifyNotesModeCombo"
+                                                  Width="105"
+                                                  Margin="0,2,5,2"
+                                                  VerticalContentAlignment="Center"
+                                                  SelectionChanged="SimplifyNotesModeChanged">
+                                            <ComboBoxItem Content="Off"/>
+                                            <ComboBoxItem Content="Auto"/>
+                                            <ComboBoxItem Content="Advanced"/>
+                                        </ComboBox>
 
                                         <TextBox x:Name="SimplifyNotesCountTextBox"
-                                                 Width="60"
-                                                 Margin="10,0,5,0"
+                                                 Width="50"
+                                                 Margin="0,2,5,2"
                                                  TextChanged="NumericSettingTextChanged"
-                                                 IsEnabled="{Binding IsChecked, ElementName=SimplifyNotesCheck}"
                                                  VerticalContentAlignment="Center"/>
 
-                                        <TextBlock Text="notes max per moment"
-                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="notes max"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,2,0,2"/>
 
-                                        <StackPanel.ToolTip>
-                                            Limit how many notes can start at exactly the same time (percussion ignored). Extra notes are dropped by picking spread pitches like lowest/middle/highest.
-                                        </StackPanel.ToolTip>
-                                    </StackPanel>
+                                        <Button x:Name="SimplifyAdvancedButton"
+                                                Content="Per-Track..."
+                                                Margin="10,2,0,2"
+                                                Padding="8,2"
+                                                Click="ConfigureAdvancedSimplify_Click"/>
+
+                                        <WrapPanel.ToolTip>
+                                            Off: do not limit notes at all.
+                                            Auto: limit notes that start at the exact same time across all tracks together, keeping a low/middle/high spread.
+                                            Advanced: choose a separate strategy and limit for each track; it is applied before tracks are merged.
+                                        </WrapPanel.ToolTip>
+                                    </WrapPanel>
 
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,5">
                                         <CheckBox x:Name="TransposeNotesCheck"

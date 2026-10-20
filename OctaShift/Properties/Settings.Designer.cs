@@ -133,6 +133,30 @@ namespace OctaShift.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SimplifyNotesMode {
+            get {
+                return ((string)(this["SimplifyNotesMode"]));
+            }
+            set {
+                this["SimplifyNotesMode"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SimplifyNotesAdvanced {
+            get {
+                return ((string)(this["SimplifyNotesAdvanced"]));
+            }
+            set {
+                this["SimplifyNotesAdvanced"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("0")]
         public double WindowWidth {
             get {
